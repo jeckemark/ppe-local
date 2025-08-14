@@ -4,7 +4,8 @@ import requests
 from threading import Thread, Event
 
 from app.services.yolo import YoloDetector
-from app.services import ppe_rules, utils, metrics
+from app.services.ppe_rules import PPEAnalyzer
+from app.services import utils, metrics
 from app.models import SessionLocal, Event as EventModel, Camera
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ class PictureWorker(Thread):
         self.debounce_seconds = debounce_seconds
         self.last_event_time = None
         self.detector = YoloDetector(self.camera.ai_model_path or None)
+        self.analyzer = PPEAnalyzer()
         self.session_factory = SessionLocal
 
     def run(self):
@@ -29,9 +31,9 @@ class PictureWorker(Thread):
                     continue
 
                 results = self.detector.detect(image_bytes)
-                summary = ppe_rules.evaluate(results)
+                summary = self.analyzer.analyze(results)
 
-                if summary.get("violation"):
+                if summary.get("total_violations"):
                     now = datetime.datetime.now()
                     if self.should_trigger_event(now):
                         self.save_event(image_bytes, summary, now)
@@ -71,13 +73,16 @@ class PictureWorker(Thread):
         try:
             image_path = utils.save_image(str(self.camera.id), image_bytes, timestamp)
             thumb_path = utils.save_thumbnail(str(self.camera.id), image_bytes, timestamp)
-
+            event_type = "OK"
+            if summary.get("details"):
+                event_type = summary["details"][0].get("status", "OK")
             event = EventModel(
                 camera_id=self.camera.id,
-                timestamp=timestamp,
+                event_type=event_type,
                 image_path=image_path,
                 thumb_path=thumb_path,
-                summary=summary
+                score=summary.get("total_violations", 0),
+                created_at=timestamp,
             )
             db.add(event)
             db.commit()
