@@ -2,6 +2,10 @@
 
 Sistema **local** com acesso via navegador para monitoramento de **Equipamentos de Proteção Individual (EPI)**, analisando **imagens estáticas** capturadas diretamente do DVR/NVR via **ISAPI `/ISAPI/Streaming/channels/{channel}/picture`** e utilizando um modelo YOLOv8 treinado para detectar **pessoa**, **capacete** e **máscara**.
 
+## Tutorial
+
+Um guia passo a passo de instalação e uso está disponível no repositório [jeckemark/ppe-local](https://github.com/jeckemark/ppe-local).
+
 ## Funcionalidades
 
 - **Acesso Web Multiusuário** (FastAPI + HTML/CSS/JS com HTMX)
