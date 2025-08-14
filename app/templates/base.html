@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PPE Local</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-gray-100 text-gray-900">
+    <header class="bg-gray-800 text-white">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-lg font-bold">PPE Local</h1>
+            <nav class="space-x-4">
+                <a href="/monitoramento" class="hover:underline">Monitoramento</a>
+                <a href="/cameras" class="hover:underline">Câmeras</a>
+                <a href="/relatorios" class="hover:underline">Relatórios</a>
+                <a href="/banco" class="hover:underline">Banco de Dados</a>
+                <a href="/usuarios" class="hover:underline">Usuários</a>
+                <a href="/metricas" class="hover:underline">Métricas</a>
+                <a href="/logs" class="hover:underline">Logs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-800 text-white text-center py-3 mt-6">
+        <p class="text-sm">© {{ year }} PPE Local — Todos os direitos reservados</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

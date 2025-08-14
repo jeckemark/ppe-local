@@ -1,0 +1,132 @@
+/* Ajustes gerais */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Layout responsivo */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Estilo para lista de eventos */
+#events-list {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+#events-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#events-list::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 100, 100, 0.5);
+    border-radius: 3px;
+}
+
+/* Botões */
+button, .btn {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button:hover, .btn:hover {
+    opacity: 0.9;
+}
+
+/* Câmeras grid */
+.camera-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.camera-grid.cols-1 {
+    grid-template-columns: repeat(1, 1fr);
+}
+
+.camera-grid.cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.camera-grid.cols-8 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.camera-grid.cols-16 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.camera-grid.cols-32 {
+    grid-template-columns: repeat(8, 1fr);
+}
+
+.camera-tile {
+    background-color: #000;
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+}
+
+.camera-tile img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.camera-status {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    border-radius: 3px;
+    color: #fff;
+}
+
+.camera-status.online {
+    background-color: #16a34a;
+}
+
+.camera-status.offline {
+    background-color: #dc2626;
+}
+
+/* Tabela de relatórios */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th, .table td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+}
+
+.table th {
+    background-color: #f3f4f6;
+    font-weight: bold;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 16px;
+    border-radius: 6px;
+    max-width: 800px;
+    width: 100%;
+}
