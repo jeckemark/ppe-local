@@ -76,7 +76,7 @@ ppe-local/
 ## Instalação
 
 ```bash
-git clone https://seu-repositorio.git ppe-local
+git clone https://github.com/jeckemark/ppe-local.git ppe-local
 cd ppe-local
 
 python -m venv .venv

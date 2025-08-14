@@ -26,11 +26,11 @@ async def monitoring_page(
     cols = COLS_MAP.get(layout, 4)
 
     cameras: List[models.Camera] = (
-        db.query(models.Camera).filter(models.Camera.enabled == True).all()
+        db.query(models.Camera).filter(models.Camera.active == True).all()
     )
     events: List[models.Event] = (
         db.query(models.Event)
-        .order_by(models.Event.created_at.desc())
+        .order_by(models.Event.ts.desc())
         .limit(50)
         .all()
     )
