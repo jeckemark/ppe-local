@@ -6,7 +6,7 @@ import datetime as dt
 from typing import List, Dict, Any
 
 from fastapi import FastAPI, Depends, Request, Form, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -19,6 +19,7 @@ from app.routers import reports as reports_router
 from app.routers import users as users_router
 from app.routers import logs as logs_router
 from app.routers import metrics as metrics_router
+from app.routers import monitoring as monitoring_router
 from app.services.metrics import Metrics
 from app.workers.manager import WorkerManager
 
@@ -116,22 +117,10 @@ async def on_event(ev: Dict[str, Any]):
 manager.set_event_callback(on_event)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("base.html", {
-        "request": request,
-        "user": user,
-        "active_tab": "monitor"
-    })
-
-
-@app.get("/monitoramento", response_class=HTMLResponse)
-async def monitor_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("base.html", {
-        "request": request,
-        "user": user,
-        "active_tab": "monitor"
-    })
+@app.get("/")
+async def root(user=Depends(get_current_user)):
+    """Redireciona a rota raiz para a página de monitoramento."""
+    return RedirectResponse(url="/monitoramento")
 
 
 @app.get("/cameras", response_class=HTMLResponse)
@@ -207,6 +196,7 @@ app.include_router(reports_router.router, prefix="/api/reports", tags=["reports"
 app.include_router(users_router.router, prefix="/api/users", tags=["users"])
 app.include_router(logs_router.router, prefix="/api/logs", tags=["logs"])
 app.include_router(metrics_router.router, prefix="/api/metrics", tags=["metrics"])
+app.include_router(monitoring_router.router)
 
 
 @app.websocket("/ws/events")
