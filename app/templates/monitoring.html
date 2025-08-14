@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row gap-4">
+  <div class="flex-1">
+    <form method="get" class="mb-4">
+      <label for="layout" class="mr-2">Quadros visíveis:</label>
+      <select id="layout" name="layout" class="border p-1" onchange="this.form.submit()">
+        {% for opt in [1,4,8,16,32] %}
+        <option value="{{ opt }}" {% if layout == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <div class="grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
+      {% for i in range(layout) %}
+      <div class="bg-black aspect-video flex items-center justify-center text-white">
+        {% if cameras|length > i %}
+        Câmera {{ cameras[i].id }}
+        {% else %}
+        Slot {{ i+1 }}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="w-full md:w-64">
+    <h2 class="font-bold mb-2">Eventos recentes</h2>
+    <ul class="space-y-2 max-h-[32rem] overflow-y-auto">
+      {% for ev in events %}
+      <li>
+        <a hx-get="/monitoramento/event/{{ ev.id }}" hx-target="#event-image" hx-swap="innerHTML" class="text-blue-600 hover:underline">
+          {{ ev.timestamp }} - Câmera {{ ev.camera_id }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+<div id="event-image" class="mt-4"></div>
+{% endblock %}
