@@ -1,88 +1,136 @@
+import asyncio
 import time
-import datetime
-import json
-import requests
-from threading import Thread, Event
+import hashlib
+import datetime as dt
+import os
 
+import httpx
+import cv2
+import numpy as np
+
+from app.models import Camera
 from app.services.yolo import YoloDetector
-from app.services import ppe_rules, utils, metrics
-from app.models import SessionLocal, Event as EventModel, Camera
-from sqlalchemy.orm import Session
+from app.services.ppe_rules import PPEAnalyzer
+from app.services.metrics import Metrics
 
-class PictureWorker(Thread):
-    def __init__(self, camera: Camera, stop_event: Event, debounce_seconds: int = 10):
-        super().__init__(daemon=True)
+
+class PictureWorker:
+    """
+    Worker assíncrono que captura snapshots via ISAPI (/picture),
+    roda YOLO, aplica regras de EPI e dispara callback de evento.
+    """
+
+    def __init__(
+        self,
+        camera: Camera,
+        metrics: Metrics,
+        on_event,
+        interval_sec: int = 2,
+        timeout: float = 5.0,
+    ):
         self.camera = camera
-        self.stop_event = stop_event
-        self.debounce_seconds = debounce_seconds
-        self.last_event_time = None
-        self.detector = YoloDetector(self.camera.ai_model_path or None)
-        self.session_factory = SessionLocal
+        self.metrics = metrics
+        self.on_event = on_event
+        self.interval_sec = interval_sec
+        self.timeout = timeout
+        self._stop = False
 
-    def run(self):
-        while not self.stop_event.is_set():
-            start_time = time.time()
+        self._detector = YoloDetector(
+            model_path=os.getenv("MODEL_PATH", "./model/ppe.pt"),
+            conf_threshold=camera.threshold or 0.4,
+        )
+        self._ppe = PPEAnalyzer(iou_threshold=0.15)
+
+        self._last_event_ts = 0.0
+        self._last_sig = None
+
+    def update_config(self, camera: Camera):
+        self.camera = camera
+
+    def stop(self):
+        self._stop = True
+
+    async def run(self):
+        backoff = 1.0
+        while not self._stop and self.camera.active:
+            t0 = time.time()
             try:
-                image_bytes = self.fetch_picture()
-                if not image_bytes:
-                    metrics.record_rtsp_error(str(self.camera.id))
-                    time.sleep(1)
+                jpg = await self._fetch_picture()
+                if not jpg:
+                    self.metrics.rtsp_errors.labels(str(self.camera.id)).inc()
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 15)
+                    continue
+                backoff = 1.0
+
+                arr = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+                if arr is None:
+                    await asyncio.sleep(self.interval_sec)
                     continue
 
-                results = self.detector.detect(image_bytes)
-                summary = ppe_rules.evaluate(results)
+                # YOLO
+                t1 = time.time()
+                dets = self._detector.detect(arr)  # [{'class','confidence','bbox':[x1,y1,x2,y2]}]
+                t2 = time.time()
 
+                # Regras PPE
+                summary = self._ppe.analyze(dets)
+                ev_type = None
                 if summary.get("total_violations", 0) > 0:
-                    now = datetime.datetime.now()
-                    if self.should_trigger_event(now):
-                        self.save_event(image_bytes, summary, now)
-                        self.last_event_time = now
+                    if any(d["status"] == "Sem capacete e máscara" for d in summary["details"]):
+                        ev_type = "no_helmet_no_mask"
+                    elif any(d["status"] == "Sem capacete" for d in summary["details"]):
+                        ev_type = "no_helmet"
+                    elif any(d["status"] == "Sem máscara" for d in summary["details"]):
+                        ev_type = "no_mask"
 
-                elapsed = time.time() - start_time
-                metrics.record_latency(str(self.camera.id), elapsed)
+                now = time.time()
+                if ev_type:
+                    sig = hashlib.sha1(f"{ev_type}:{summary}".encode()).hexdigest()
+                    if now - self._last_event_ts < (self.camera.debounce_sec or 5):
+                        self.metrics.debounce.labels(str(self.camera.id)).inc()
+                    elif sig == self._last_sig:
+                        self.metrics.dedupe.labels(str(self.camera.id)).inc()
+                    else:
+                        ts = dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+                        img_path = f"./data/images/cam{self.camera.id}_{ts}.jpg"
+                        with open(img_path, "wb") as f:
+                            f.write(jpg)
+                        self._last_event_ts = now
+                        self._last_sig = sig
+                        # Delega persistência/broadcast ao callback do manager/main.py
+                        await self.on_event(
+                            {
+                                "camera_id": self.camera.id,
+                                "type": ev_type,
+                                "score": 1.0,
+                                "image_path": img_path,
+                                "meta": summary,
+                            }
+                        )
 
-            except Exception as e:
-                metrics.record_rtsp_error(str(self.camera.id))
-                time.sleep(1)
-                continue
+                # métricas
+                self.metrics.fps.labels(str(self.camera.id)).set(
+                    1.0 / max(1e-3, time.time() - t0)
+                )
+                self.metrics.latency.labels("detect").observe((t2 - t1) * 1000.0)
 
-            time.sleep(self.camera.polling_interval or 2)
+                await asyncio.sleep(max(0.0, self.interval_sec - (time.time() - t0)))
+            except Exception:
+                self.metrics.rtsp_errors.labels(str(self.camera.id)).inc()
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 15)
 
-    def fetch_picture(self) -> bytes:
+    async def _fetch_picture(self) -> bytes | None:
         """Obtém imagem estática via ISAPI."""
         try:
-            url = f"{self.camera.nvr_base_url}/ISAPI/Streaming/channels/{self.camera.channel_no}/picture"
-            auth = (self.camera.username, self.camera.password)
-            resp = requests.get(url, auth=auth, timeout=10, verify=False)
-            if resp.status_code == 200:
-                return resp.content
+            base = self.camera.nvr_base_url.rstrip("/")
+            url = f"{base}/ISAPI/Streaming/channels/{self.camera.channel_no}/picture"
+            auth = (self.camera.nvr_username, self.camera.nvr_password)
+            async with httpx.AsyncClient(verify=False, timeout=self.timeout) as cli:
+                r = await cli.get(url, auth=auth)
+            if r.status_code == 200 and r.content:
+                return r.content
             return None
         except Exception:
             return None
-
-    def should_trigger_event(self, now: datetime.datetime) -> bool:
-        """Controle de debounce."""
-        if not self.last_event_time:
-            return True
-        return (now - self.last_event_time).total_seconds() >= self.debounce_seconds
-
-    def save_event(self, image_bytes: bytes, summary: dict, timestamp: datetime.datetime):
-        """Salva evento no banco e gera thumbnail."""
-        db: Session = self.session_factory()
-        try:
-            image_path = utils.save_image(str(self.camera.id), image_bytes, timestamp)
-            thumb_path = utils.save_thumbnail(str(self.camera.id), image_bytes, timestamp)
-
-            event = EventModel(
-                camera_id=self.camera.id,
-                timestamp=timestamp,
-                image_path=image_path,
-                thumb_path=thumb_path,
-                ppe_status=summary.get("status"),
-                summary=json.dumps(summary, ensure_ascii=False),
-            )
-            db.add(event)
-            db.commit()
-            db.refresh(event)
-        finally:
-            db.close()

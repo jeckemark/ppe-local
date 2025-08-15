@@ -9,8 +9,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const socket = new WebSocket(wsUrl);
 
         socket.onmessage = function (event) {
-            const data = JSON.parse(event.data);
-            addEventToList(data);
+            const msg = JSON.parse(event.data);
+            if (msg && msg.kind === "event" && msg.data) {
+                addEventToList(msg.data);
+            }
         };
 
         socket.onclose = function () {
@@ -19,26 +21,30 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function addEventToList(eventData) {
-        if (!eventsList) return;
-        const item = document.createElement("div");
-        item.classList.add("border", "p-2", "mb-2", "bg-white", "shadow-sm", "rounded");
-        item.innerHTML = `
-            <div class="flex justify-between items-center">
-                <div>
-                    <p class="text-sm font-semibold">${eventData.ppe_status}</p>
-                    <p class="text-xs text-gray-500">${new Date(eventData.timestamp).toLocaleString()}</p>
-                </div>
-                <img src="${eventData.thumb_path}" alt="thumb" class="w-16 h-16 object-cover rounded">
-            </div>
-        `;
-        eventsList.prepend(item);
+    function addEventToList(ev) {
+        if (!eventsList || !ev) return;
+
+        // Cria item simples compatível com HTMX para abrir detalhe do evento (sem stream)
+        const li = document.createElement("li");
+        const link = document.createElement("a");
+        link.className = "text-blue-600 hover:underline";
+        link.setAttribute("hx-get", `/monitoramento/event/${ev.id}`);
+        link.setAttribute("hx-target", "#event-image");
+        link.setAttribute("hx-swap", "innerHTML");
+
+        const tsStr = ev.ts ? new Date(ev.ts).toLocaleString() : "";
+        link.textContent = `${tsStr} - Câmera ${ev.camera_id}`;
+        li.appendChild(link);
+
+        eventsList.prepend(li);
+
+        // Mantém apenas os 50 mais recentes
         while (eventsList.children.length > 50) {
             eventsList.removeChild(eventsList.lastChild);
         }
     }
 
-    // Botão de exportar relatório
+    // Botão de exportar relatório (se existir)
     const exportBtn = document.getElementById("export-report");
     if (exportBtn) {
         exportBtn.addEventListener("click", () => {
@@ -46,7 +52,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Notificação de câmera offline
+    // Destaque para câmeras offline (se houver marcadores na UI)
     document.querySelectorAll("[data-camera-status]").forEach(el => {
         if (el.dataset.cameraStatus === "offline") {
             el.classList.add("bg-red-200");
