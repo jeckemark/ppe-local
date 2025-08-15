@@ -5,6 +5,8 @@ import pathlib
 import datetime as dt
 from typing import List, Dict, Any
 
+from sqlalchemy.orm import Session
+
 from fastapi import FastAPI, Depends, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -124,12 +126,51 @@ async def root(user=Depends(get_current_user)):
 
 
 @app.get("/cameras", response_class=HTMLResponse)
-async def cameras_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("base.html", {
-        "request": request,
-        "user": user,
-        "active_tab": "cameras"
-    })
+async def cameras_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(Role.admin, Role.supervisor)),
+):
+    cams = db.query(Camera).all()
+    return templates.TemplateResponse(
+        "cameras.html",
+        {"request": request, "user": user, "cameras": cams, "active_tab": "cameras"},
+    )
+
+
+@app.post("/cameras", response_class=HTMLResponse)
+async def create_camera_page(
+    request: Request,
+    name: str = Form(...),
+    nvr_base_url: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    channel_no: int = Form(...),
+    threshold: float = Form(0.5),
+    debounce_sec: int = Form(5),
+    detect_person: bool = Form(False),
+    detect_helmet: bool = Form(False),
+    detect_mask: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_roles(Role.admin, Role.supervisor)),
+):
+    cam = Camera(
+        name=name,
+        nvr_base_url=nvr_base_url,
+        username=username,
+        password=password,
+        channel_no=channel_no,
+        threshold=threshold,
+        debounce_sec=debounce_sec,
+        detect_person=detect_person,
+        detect_helmet=detect_helmet,
+        detect_mask=detect_mask,
+    )
+    db.add(cam)
+    db.commit()
+    db.refresh(cam)
+    manager._start_worker(cam)
+    return RedirectResponse(url="/cameras", status_code=303)
 
 
 @app.get("/relatorios", response_class=HTMLResponse)

@@ -13,7 +13,7 @@ def list_logs(
     db: Session = Depends(deps.get_db),
     _: models.User = Depends(deps.get_admin_user)
 ):
-    return db.query(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+    return db.query(models.AuditLog).order_by(models.AuditLog.created_at.desc()).offset(skip).limit(limit).all()
 
 @router.post("/", response_model=schemas.AuditLogOut)
 def create_log(
@@ -24,7 +24,7 @@ def create_log(
     log = models.AuditLog(
         user_id=current_user.id,
         action=log_in.action,
-        details=log_in.details
+        detail=log_in.detail,
     )
     db.add(log)
     db.commit()

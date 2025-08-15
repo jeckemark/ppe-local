@@ -9,8 +9,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const socket = new WebSocket(wsUrl);
 
         socket.onmessage = function (event) {
-            const data = JSON.parse(event.data);
-            addEventToList(data);
+            const msg = JSON.parse(event.data);
+            if (msg.kind === "event") {
+                addEventToList(msg.data);
+            }
         };
 
         socket.onclose = function () {
@@ -19,20 +21,18 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function addEventToList(eventData) {
+    function addEventToList(ev) {
         if (!eventsList) return;
-        const item = document.createElement("div");
-        item.classList.add("border", "p-2", "mb-2", "bg-white", "shadow-sm", "rounded");
-        item.innerHTML = `
-            <div class="flex justify-between items-center">
-                <div>
-                    <p class="text-sm font-semibold">${eventData.event_type}</p>
-                    <p class="text-xs text-gray-500">${new Date(eventData.created_at).toLocaleString()}</p>
-                </div>
-                <img src="/${eventData.thumb_path}" alt="thumb" class="w-16 h-16 object-cover rounded">
-            </div>
-        `;
-        eventsList.prepend(item);
+        const li = document.createElement("li");
+        const link = document.createElement("a");
+        link.className = "text-blue-600 hover:underline";
+        link.setAttribute("hx-get", `/monitoramento/event/${ev.id}`);
+        link.setAttribute("hx-target", "#event-image");
+        link.setAttribute("hx-swap", "innerHTML");
+        const ts = new Date(ev.ts).toLocaleString();
+        link.textContent = `${ts} - Câmera ${ev.camera_id}`;
+        li.appendChild(link);
+        eventsList.prepend(li);
         while (eventsList.children.length > 50) {
             eventsList.removeChild(eventsList.lastChild);
         }

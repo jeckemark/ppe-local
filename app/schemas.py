@@ -112,6 +112,15 @@ class EventOut(EventBase):
 
 
 # ------------------------
+# Relatórios
+# ------------------------
+class ReportFilter(BaseModel):
+    camera_id: Optional[int] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+# ------------------------
 # Auditoria
 # ------------------------
 class AuditLogBase(BaseModel):

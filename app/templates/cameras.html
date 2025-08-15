@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="text-xl font-bold mb-4">Configuração de Câmeras</h2>
+<form action="/cameras" method="post" class="grid grid-cols-2 gap-4 mb-6 bg-white p-4 rounded shadow">
+  <input name="name" required placeholder="Nome" class="border p-2" />
+  <input name="nvr_base_url" required placeholder="URL do NVR" class="border p-2" />
+  <input name="username" required placeholder="Usuário" class="border p-2" />
+  <input name="password" type="password" required placeholder="Senha" class="border p-2" />
+  <input name="channel_no" type="number" required placeholder="Canal" class="border p-2" />
+  <input name="threshold" type="number" step="0.1" min="0" max="1" value="0.5" placeholder="Threshold" class="border p-2" />
+  <input name="debounce_sec" type="number" value="5" placeholder="Debounce (s)" class="border p-2" />
+  <label class="flex items-center space-x-2"><input type="checkbox" name="detect_person" checked><span>Pessoa</span></label>
+  <label class="flex items-center space-x-2"><input type="checkbox" name="detect_helmet" checked><span>Capacete</span></label>
+  <label class="flex items-center space-x-2"><input type="checkbox" name="detect_mask" checked><span>Máscara</span></label>
+  <div class="col-span-2 text-right">
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Adicionar</button>
+  </div>
+</form>
+
+<table class="min-w-full bg-white rounded shadow">
+  <thead class="bg-gray-200">
+    <tr>
+      <th class="p-2 text-left">ID</th>
+      <th class="p-2 text-left">Nome</th>
+      <th class="p-2 text-left">NVR</th>
+      <th class="p-2 text-left">Canal</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for cam in cameras %}
+    <tr class="border-b">
+      <td class="p-2">{{ cam.id }}</td>
+      <td class="p-2">{{ cam.name }}</td>
+      <td class="p-2">{{ cam.nvr_base_url }}</td>
+      <td class="p-2">{{ cam.channel_no }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -20,10 +20,10 @@ def search_reports(
     if filters.camera_id:
         query = query.filter(models.Event.camera_id == filters.camera_id)
     if filters.start_date:
-        query = query.filter(models.Event.timestamp >= filters.start_date)
+        query = query.filter(models.Event.created_at >= filters.start_date)
     if filters.end_date:
-        query = query.filter(models.Event.timestamp <= filters.end_date)
-    return query.order_by(models.Event.timestamp.desc()).all()
+        query = query.filter(models.Event.created_at <= filters.end_date)
+    return query.order_by(models.Event.created_at.desc()).all()
 
 @router.post("/export")
 def export_reports_csv(
@@ -35,20 +35,20 @@ def export_reports_csv(
     if filters.camera_id:
         query = query.filter(models.Event.camera_id == filters.camera_id)
     if filters.start_date:
-        query = query.filter(models.Event.timestamp >= filters.start_date)
+        query = query.filter(models.Event.created_at >= filters.start_date)
     if filters.end_date:
-        query = query.filter(models.Event.timestamp <= filters.end_date)
-    events = query.order_by(models.Event.timestamp.desc()).all()
+        query = query.filter(models.Event.created_at <= filters.end_date)
+    events = query.order_by(models.Event.created_at.desc()).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID", "Câmera", "Timestamp", "Status EPI", "Caminho Imagem"])
+    writer.writerow(["ID", "Câmera", "Data/Hora", "Status EPI", "Caminho Imagem"])
     for e in events:
         writer.writerow([
             e.id,
             e.camera.name if e.camera else "",
-            e.timestamp.isoformat(),
-            e.ppe_status,
+            e.created_at.isoformat(),
+            e.event_type,
             e.image_path
         ])
     output.seek(0)

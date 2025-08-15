@@ -25,11 +25,16 @@
   </div>
   <div class="w-full md:w-64">
     <h2 class="font-bold mb-2">Eventos recentes</h2>
-    <ul class="space-y-2 max-h-[32rem] overflow-y-auto">
+    <ul id="events-list" class="space-y-2 max-h-[32rem] overflow-y-auto">
       {% for ev in events %}
       <li>
-        <a hx-get="/monitoramento/event/{{ ev.id }}" hx-target="#event-image" hx-swap="innerHTML" class="text-blue-600 hover:underline">
-          {{ ev.timestamp }} - Câmera {{ ev.camera_id }}
+        <a
+          hx-get="/monitoramento/event/{{ ev.id }}"
+          hx-target="#event-image"
+          hx-swap="innerHTML"
+          class="text-blue-600 hover:underline"
+        >
+          {{ (ev.ts or ev.created_at or ev.timestamp) }} - Câmera {{ ev.camera_id }}
         </a>
       </li>
       {% endfor %}
