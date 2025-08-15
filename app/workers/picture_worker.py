@@ -1,5 +1,6 @@
 import time
 import datetime
+import json
 import requests
 from threading import Thread, Event
 
@@ -31,7 +32,7 @@ class PictureWorker(Thread):
                 results = self.detector.detect(image_bytes)
                 summary = ppe_rules.evaluate(results)
 
-                if summary.get("violation"):
+                if summary.get("total_violations", 0) > 0:
                     now = datetime.datetime.now()
                     if self.should_trigger_event(now):
                         self.save_event(image_bytes, summary, now)
@@ -77,7 +78,8 @@ class PictureWorker(Thread):
                 timestamp=timestamp,
                 image_path=image_path,
                 thumb_path=thumb_path,
-                summary=summary
+                ppe_status=summary.get("status"),
+                summary=json.dumps(summary, ensure_ascii=False),
             )
             db.add(event)
             db.commit()

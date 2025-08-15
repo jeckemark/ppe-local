@@ -26,7 +26,7 @@ class WorkerManager:
         if camera.id in self.workers:
             return
         stop_event = threading.Event()
-        worker = PictureWorker(camera, stop_event, debounce_seconds=camera.debounce or 10)
+        worker = PictureWorker(camera, stop_event, debounce_seconds=camera.debounce_sec or 10)
         worker.start()
         self.workers[camera.id] = worker
         self.stop_events[camera.id] = stop_event

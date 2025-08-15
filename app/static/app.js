@@ -26,10 +26,10 @@ document.addEventListener("DOMContentLoaded", function () {
         item.innerHTML = `
             <div class="flex justify-between items-center">
                 <div>
-                    <p class="text-sm font-semibold">${eventData.event_type}</p>
-                    <p class="text-xs text-gray-500">${new Date(eventData.created_at).toLocaleString()}</p>
+                    <p class="text-sm font-semibold">${eventData.ppe_status}</p>
+                    <p class="text-xs text-gray-500">${new Date(eventData.timestamp).toLocaleString()}</p>
                 </div>
-                <img src="/${eventData.thumb_path}" alt="thumb" class="w-16 h-16 object-cover rounded">
+                <img src="${eventData.thumb_path}" alt="thumb" class="w-16 h-16 object-cover rounded">
             </div>
         `;
         eventsList.prepend(item);

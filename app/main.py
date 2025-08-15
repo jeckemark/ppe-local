@@ -42,12 +42,14 @@ def ensure_bootstrap():
     db = SessionLocal()
     try:
         if not db.query(User).first():
-            admin = User(email="admin@example.com",
-                         password_hash=get_password_hash("admin123"),
-                         role=Role.admin)
+            admin = User(
+                email="admin@example.com",
+                hashed_password=get_password_hash("admin123"),
+                role=Role.admin,
+            )
             db.add(admin)
-        if not db.query(Setting).first():
-            s = Setting(retention_days=int(os.getenv("RETENTION_DAYS", "15")))
+        if not db.query(Setting).filter(Setting.key == "retention_days").first():
+            s = Setting(key="retention_days", value=os.getenv("RETENTION_DAYS", "15"))
             db.add(s)
         db.commit()
     finally:
@@ -57,64 +59,7 @@ def ensure_bootstrap():
 ensure_bootstrap()
 
 metrics = Metrics()
-manager = WorkerManager(metrics=metrics)
-
-
-class EventHub:
-    def __init__(self):
-        self._clients: List[WebSocket] = []
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self._clients.append(ws)
-
-    async def disconnect(self, ws: WebSocket):
-        if ws in self._clients:
-            self._clients.remove(ws)
-
-    async def broadcast(self, payload: Dict[str, Any]):
-        dead = []
-        for ws in list(self._clients):
-            try:
-                await ws.send_text(json.dumps(payload, ensure_ascii=False))
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            await self.disconnect(ws)
-
-
-event_hub = EventHub()
-
-
-async def on_event(ev: Dict[str, Any]):
-    db = SessionLocal()
-    try:
-        e = Event(
-            ts=dt.datetime.utcnow(),
-            camera_id=ev["camera_id"],
-            ev_type=ev["type"],
-            score=ev.get("score", 0.0),
-            image_path=ev.get("image_path"),
-            meta=json.dumps(ev.get("meta", {}), ensure_ascii=False),
-        )
-        db.add(e)
-        db.commit()
-        db.refresh(e)
-        payload = {
-            "id": e.id,
-            "ts": e.ts.isoformat() + "Z",
-            "camera_id": e.camera_id,
-            "type": e.ev_type,
-            "score": e.score,
-            "image_path": e.image_path,
-            "meta": json.loads(e.meta or "{}")
-        }
-        await event_hub.broadcast({"kind": "event", "data": payload})
-    finally:
-        db.close()
-
-
-manager.set_event_callback(on_event)
+manager = WorkerManager()
 
 
 @app.get("/")
@@ -182,7 +127,7 @@ def login(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
         u = db.query(User).filter(User.email == email).first()
-        if not u or not verify_password(password, u.password_hash):
+        if not u or not verify_password(password, u.hashed_password):
             return JSONResponse({"detail": "Credenciais inválidas"}, status_code=401)
         token = create_access_token({"sub": u.email, "role": u.role.value})
         return {"access_token": token, "token_type": "bearer"}
@@ -201,15 +146,14 @@ app.include_router(monitoring_router.router)
 
 @app.websocket("/ws/events")
 async def ws_events(ws: WebSocket):
-    await event_hub.connect(ws)
+    await ws.accept()
     try:
-        await ws.send_text(json.dumps({"kind": "hello"}, ensure_ascii=False))
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        await event_hub.disconnect(ws)
+        pass
     except Exception:
-        await event_hub.disconnect(ws)
+        pass
 
 
 async def retention_loop():
@@ -217,16 +161,16 @@ async def retention_loop():
         days = 15
         db = SessionLocal()
         try:
-            s = db.query(Setting).first()
+            s = db.query(Setting).filter(Setting.key == "retention_days").first()
             if s:
-                days = int(s.retention_days or 15)
+                days = int(s.value)
             cutoff = dt.datetime.utcnow() - dt.timedelta(days=days)
-            old = db.query(Event).filter(Event.ts < cutoff).all()
+            old = db.query(Event).filter(Event.timestamp < cutoff).all()
             for e in old:
                 if e.image_path and os.path.exists(e.image_path):
                     try:
                         os.remove(e.image_path)
-                    except:
+                    except Exception:
                         pass
                 db.delete(e)
             db.commit()
@@ -236,7 +180,7 @@ async def retention_loop():
 
 
 async def startup():
-    await manager.start()
+    manager.start_all()
     asyncio.create_task(retention_loop())
 
 
@@ -247,4 +191,4 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    await manager.stop()
+    manager.stop_all()
