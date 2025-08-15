@@ -53,6 +53,9 @@ class Camera(Base, TimestampMixin):
     channel_no = Column(Integer, nullable=False)
     threshold = Column(Float, default=0.5)
     debounce_sec = Column(Integer, default=5)
+    enabled = Column(Boolean, default=True)
+    ai_model_path = Column(String, nullable=True)
+    polling_interval = Column(Integer, default=2)
     detect_person = Column(Boolean, default=True)
     detect_helmet = Column(Boolean, default=True)
     detect_mask = Column(Boolean, default=True)
@@ -63,10 +66,11 @@ class Event(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True, index=True)
     camera_id = Column(Integer, ForeignKey("cameras.id"), nullable=False)
-    event_type = Column(String, nullable=False)  # no_helmet, no_mask, no_helmet_no_mask
+    timestamp = Column(DateTime, default=datetime.utcnow)
     image_path = Column(String, nullable=False)
     thumb_path = Column(String, nullable=True)
-    score = Column(Float, nullable=True)
+    ppe_status = Column(String, nullable=True)
+    summary = Column(Text, nullable=True)
 
     camera = relationship("Camera")
 

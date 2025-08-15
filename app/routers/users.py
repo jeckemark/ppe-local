@@ -19,13 +19,14 @@ def create_user(
     db: Session = Depends(deps.get_db),
     _: models.User = Depends(deps.get_admin_user)
 ):
-    if db.query(models.User).filter(models.User.username == user_in.username).first():
+    if db.query(models.User).filter(models.User.email == user_in.email).first():
         raise HTTPException(status_code=400, detail="Usuário já existe")
     hashed_pw = auth.get_password_hash(user_in.password)
     user = models.User(
-        username=user_in.username,
+        email=user_in.email,
         hashed_password=hashed_pw,
-        role=user_in.role
+        role=user_in.role,
+        is_active=user_in.is_active,
     )
     db.add(user)
     db.commit()
@@ -42,10 +43,14 @@ def update_user(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if user_in.email:
+        user.email = user_in.email
     if user_in.password:
         user.hashed_password = auth.get_password_hash(user_in.password)
     if user_in.role:
         user.role = user_in.role
+    if user_in.is_active is not None:
+        user.is_active = user_in.is_active
     db.commit()
     db.refresh(user)
     return user

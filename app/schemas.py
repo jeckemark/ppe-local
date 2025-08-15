@@ -56,6 +56,9 @@ class CameraBase(BaseModel):
     channel_no: int
     threshold: float = 0.5
     debounce_sec: int = 5
+    enabled: bool = True
+    ai_model_path: Optional[str] = None
+    polling_interval: int = 2
     detect_person: bool = True
     detect_helmet: bool = True
     detect_mask: bool = True
@@ -73,6 +76,9 @@ class CameraUpdate(BaseModel):
     channel_no: Optional[int] = None
     threshold: Optional[float] = None
     debounce_sec: Optional[int] = None
+    enabled: Optional[bool] = None
+    ai_model_path: Optional[str] = None
+    polling_interval: Optional[int] = None
     detect_person: Optional[bool] = None
     detect_helmet: Optional[bool] = None
     detect_mask: Optional[bool] = None
@@ -92,10 +98,11 @@ class CameraOut(CameraBase):
 # ------------------------
 class EventBase(BaseModel):
     camera_id: int
-    event_type: str
+    timestamp: datetime
     image_path: str
     thumb_path: Optional[str] = None
-    score: Optional[float] = None
+    ppe_status: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class EventCreate(EventBase):
@@ -152,3 +159,9 @@ class SettingBase(BaseModel):
 
 class SettingOut(SettingBase):
     pass
+
+
+class ReportFilter(BaseModel):
+    camera_id: Optional[int] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None

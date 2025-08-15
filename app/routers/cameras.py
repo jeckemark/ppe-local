@@ -18,7 +18,8 @@ def create_camera(camera_in: schemas.CameraCreate, db: Session = Depends(deps.ge
     db.add(camera)
     db.commit()
     db.refresh(camera)
-    manager._start_worker(camera)
+    if camera.enabled:
+        manager._start_worker(camera)
     return camera
 
 @router.put("/{camera_id}", response_model=schemas.CameraOut)
@@ -30,7 +31,10 @@ def update_camera(camera_id: int, camera_in: schemas.CameraUpdate, db: Session =
         setattr(camera, field, value)
     db.commit()
     db.refresh(camera)
-    manager.restart_worker(camera_id)
+    if camera.enabled:
+        manager.restart_worker(camera_id)
+    else:
+        manager.stop_worker(camera_id)
     return camera
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -72,6 +72,14 @@ class PPEAnalyzer:
             "details": results
         }
 
+
+def evaluate(detections: List[Dict[str, Any]]) -> Dict[str, Any]:
+    analyzer = PPEAnalyzer()
+    analysis = analyzer.analyze(detections)
+    status = "OK" if analysis["total_violations"] == 0 else "Violação"
+    analysis["status"] = status
+    return analysis
+
 # Exemplo de teste manual
 if __name__ == "__main__":
     detections = [
